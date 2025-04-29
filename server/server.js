@@ -7,7 +7,7 @@ const app = express();
 const cors = require('cors');
 // ... other imports ...
 const corsOptions = {
-    origin: 'https://glowing-licorice-42e6fa.netlify.app/', // Replace with your actual Netlify URL
+    origin: 'https://glowing-licorice-42e6fa.netlify.app', // Replace with your actual Netlify URL
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
     credentials: true,
 };
