@@ -6,7 +6,7 @@ const jwt = require('jsonwebtoken'); // You'll need this for creating tokens
 const bcrypt = require('bcrypt');  //for password hashing
 
   // Secret key for JWT (store this in an environment variable)
-const JWT_SECRET = process.env.JWT_SECRET || ''; 
+const JWT_SECRET = process.env.JWT_SECRET || 'my-secret-key'; 
 router.post('/', async (req, res) => {
     try {
         const { service, date, time, name, email } = req.body;
