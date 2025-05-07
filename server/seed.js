@@ -3,10 +3,13 @@ const mongoose = require('mongoose');
 const bcrypt = require('bcrypt');
 const User = require('./models/user.model'); // Adjust the path to your User model if needed
 
+//  Define your MongoDB URI directly here.
+const MONGODB_URI = 'mongodb+srv://nachwerarichard:Evv8mfwkXlmkIe82@bookingengine.vra586l.mongodb.net/?retryWrites=true&w=majority&appName=bookingengine'; // Replace with your actual MongoDB URI
+
 async function seedDatabase() {
   try {
     // 1. Connect to MongoDB
-    await mongoose.connect(process.env.MONGODB_URI || 'https://bookingenginebackend.onrender.com', { // Use your MongoDB URI from .env
+    await mongoose.connect(MONGODB_URI, { 
       useNewUrlParser: true,
       useUnifiedTopology: true,
     });

@@ -113,37 +113,33 @@ router.delete('/:id', async (req, res) => {
  const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';  // Use a default only if not in .env
 
  // ... your other routes ...
-
- // Login route
  router.post('/login', async (req, res) => {
-     const { username, password } = req.body;
+    const { username, password } = req.body;
 
-     try {
-         // 1. Find the user by username (you'll need a User model)
-         //   Important:  You should have a separate User model, NOT a Booking model, to store user credentials
-         const user = await User.findOne({ username });  //  Change User
+    try {
+        const user = await User.findOne({ username });
 
-         if (!user) {
-             return res.status(401).json({ message: 'Invalid credentials' });
-         }
-         // 2. Compare the provided password with the hashed password in the database
-         const passwordMatch = await bcrypt.compare(password, user.password); //  Change user.password
+        if (!user) {
+            return res.status(401).json({ message: 'Invalid credentials' });
+        }
 
-         if (!passwordMatch) {
-             return res.status(401).json({ message: 'Invalid credentials' });
-         }
+        const passwordMatch = await bcrypt.compare(password, user.password);
 
-         // 3. If the username and password are correct, create a JWT
-         const token = jwt.sign({ userId: user._id, username: user.username }, JWT_SECRET, { // Change user
-             expiresIn: '24h', // Token expires in 24 hours
-         });
+        if (!passwordMatch) {
+            return res.status(401).json({ message: 'Invalid credentials' });
+        }
 
-         // 4. Send the token back to the client
-         res.json({ token });
-     } catch (error) {
-         res.status(500).json({ message: 'Error during login', error: error.message });
-     }
- });
+        const token = jwt.sign({ userId: user._id, username: user.username }, JWT_SECRET, {
+            expiresIn: '24h',
+        });
+
+        res.json({ token });
+    } catch (error) {
+        res.status(500).json({ message: 'Error during login', error: error.message });
+    }
+});
+ // Login route
+ 
 
  // ... your other routes ...
 module.exports = router;
