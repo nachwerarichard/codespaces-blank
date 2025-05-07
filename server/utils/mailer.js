@@ -10,6 +10,15 @@ const transporter = nodemailer.createTransport({
   },
 });
 
+transporter.verify((error, success) => {
+  if (error) {
+    console.error('Transporter setup failed:', error);
+  } else {
+    console.log('Transporter is ready to send emails');
+  }
+});
+
+
 async function sendBookingConfirmationEmail(bookingData, managerEmail, stakeholderEmails, clientEmail) {
   const mailOptions = {
     from: process.env.EMAIL_USER,
