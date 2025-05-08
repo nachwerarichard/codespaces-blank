@@ -128,7 +128,8 @@ router.delete('/:id', async (req, res) => {
         console.log('User not found');
         return res.status(401).json({ message: 'Invalid credentials' });
       }
-  
+      console.log('Plain-text password from request:', password);
+      console.log('Hashed password from database:', user.password);
       const passwordMatch = await bcrypt.compare(password, user.password);
       console.log('Password match:', passwordMatch);
   
