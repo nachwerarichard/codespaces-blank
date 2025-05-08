@@ -115,13 +115,15 @@ router.delete('/:id', async (req, res) => {
  const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';  // Use a default only if not in .env
 
  // ... your other routes ...
- router.post('/api/admin/login', (req, res) => {
-    const { username, password } = req.body;
+ router.post('/login', (req, res) => {
+    // your admin login logic here
+    const { email, password } = req.body;
   
-    if (username === 'admin' && password === '123') {
-      res.json({ message: 'Login successful' });
+    // For example only:
+    if (email === 'admin' && password === '123') {
+      return res.json({ message: 'Login successful!' });
     } else {
-      res.status(401).json({ message: 'Invalid credentials' });
+      return res.status(401).json({ message: 'Invalid credentials' });
     }
   });
   
