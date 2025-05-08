@@ -4,6 +4,8 @@ const Booking = require('../models/booking.model');
 const { sendBookingConfirmationEmail } = require('../utils/mailer'); // Import your mailer function
 const jwt = require('jsonwebtoken'); // You'll need this for creating tokens
 const bcrypt = require('bcrypt');  //for password hashing
+const User = require('../models/user.model'); // Import your User model
+
 
   // Secret key for JWT (store this in an environment variable)
 router.post('/', async (req, res) => {
@@ -117,10 +119,10 @@ router.delete('/:id', async (req, res) => {
     const { username, password } = req.body;
   
     try {
-      console.log('Login attempt for username:', username); // Log username
+      console.log('Login attempt for username:', username);
   
       const user = await User.findOne({ username });
-      console.log('User from database:', user); // Log the user object
+      console.log('User from database:', user);
   
       if (!user) {
         console.log('User not found');
@@ -128,26 +130,25 @@ router.delete('/:id', async (req, res) => {
       }
   
       const passwordMatch = await bcrypt.compare(password, user.password);
-      console.log('Password match:', passwordMatch); // Log the result of the comparison
+      console.log('Password match:', passwordMatch);
   
       if (!passwordMatch) {
         console.log('Password mismatch');
         return res.status(401).json({ message: 'Invalid credentials' });
       }
-  
-      console.log('JWT_SECRET:', JWT_SECRET); // Log JWT_SECRET
+      console.log('JWT_SECRET: ', JWT_SECRET)
       const token = jwt.sign({ userId: user._id, username: user.username }, JWT_SECRET, {
         expiresIn: '24h',
       });
-      console.log('Generated token:', token);  // Log the generated token
+      console.log('Generated token:', token);
   
       res.json({ token });
     } catch (error) {
-      console.error('Login error:', error); // Log the full error
+      console.error('Login error:', error);
       res.status(500).json({ message: 'Error during login', error: error.message });
     }
   });
- 
+  
 
  // ... your other routes ...
 module.exports = router;
