@@ -115,30 +115,38 @@ router.delete('/:id', async (req, res) => {
  // ... your other routes ...
  router.post('/login', async (req, res) => {
     const { username, password } = req.body;
-
+  
     try {
-        const user = await User.findOne({ username });
-
-        if (!user) {
-            return res.status(401).json({ message: 'Invalid credentials' });
-        }
-
-        const passwordMatch = await bcrypt.compare(password, user.password);
-
-        if (!passwordMatch) {
-            return res.status(401).json({ message: 'Invalid credentials' });
-        }
-
-        const token = jwt.sign({ userId: user._id, username: user.username }, JWT_SECRET, {
-            expiresIn: '24h',
-        });
-
-        res.json({ token });
+      console.log('Login attempt for username:', username); // Log username
+  
+      const user = await User.findOne({ username });
+      console.log('User from database:', user); // Log the user object
+  
+      if (!user) {
+        console.log('User not found');
+        return res.status(401).json({ message: 'Invalid credentials' });
+      }
+  
+      const passwordMatch = await bcrypt.compare(password, user.password);
+      console.log('Password match:', passwordMatch); // Log the result of the comparison
+  
+      if (!passwordMatch) {
+        console.log('Password mismatch');
+        return res.status(401).json({ message: 'Invalid credentials' });
+      }
+  
+      console.log('JWT_SECRET:', JWT_SECRET); // Log JWT_SECRET
+      const token = jwt.sign({ userId: user._id, username: user.username }, JWT_SECRET, {
+        expiresIn: '24h',
+      });
+      console.log('Generated token:', token);  // Log the generated token
+  
+      res.json({ token });
     } catch (error) {
-        res.status(500).json({ message: 'Error during login', error: error.message });
+      console.error('Login error:', error); // Log the full error
+      res.status(500).json({ message: 'Error during login', error: error.message });
     }
-});
- // Login route
+  });
  
 
  // ... your other routes ...
