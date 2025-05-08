@@ -117,10 +117,10 @@ router.delete('/:id', async (req, res) => {
  // ... your other routes ...
  router.post('/login', (req, res) => {
     // your admin login logic here
-    const { email, password } = req.body;
+    const { name, password } = req.body;
   
     // For example only:
-    if (email === 'admin' && password === '123') {
+    if (name === 'admin' && password === '123') {
       return res.json({ message: 'Login successful!' });
     } else {
       return res.status(401).json({ message: 'Invalid credentials' });
