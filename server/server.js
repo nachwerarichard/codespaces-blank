@@ -5,6 +5,8 @@ const path = require('path');
 const bookingRoutes = require('./routes/booking.routes');
 const app = express();
 const cors = require('cors');
+const adminRoutes = require('./routes/booking.routes'); // Adjust the path if needed
+
 // ... other imports ...
 const corsOptions = {
     origin: 'https://glowing-licorice-42e6fa.netlify.app', // Replace with your actual Netlify URL
