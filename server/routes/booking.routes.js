@@ -115,40 +115,16 @@ router.delete('/:id', async (req, res) => {
  const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';  // Use a default only if not in .env
 
  // ... your other routes ...
- router.post('/login', async (req, res) => {
+ router.post('/api/admin/login', (req, res) => {
     const { username, password } = req.body;
   
-    try {
-      console.log('Login attempt for username:', username);
-  
-      const user = await User.findOne({ username });
-      console.log('User from database:', user);
-  
-      if (!user) {
-        console.log('User not found');
-        return res.status(401).json({ message: 'Invalid credentials' });
-      }
-      console.log('Plain-text password from request:', password);
-      console.log('Hashed password from database:', user.password);
-      const passwordMatch = await bcrypt.compare(password, user.password);
-      console.log('Password match:', passwordMatch);
-  
-      if (!passwordMatch) {
-        console.log('Password mismatch');
-        return res.status(401).json({ message: 'Invalid credentials' });
-      }
-      console.log('JWT_SECRET: ', JWT_SECRET)
-      const token = jwt.sign({ userId: user._id, username: user.username }, JWT_SECRET, {
-        expiresIn: '24h',
-      });
-      console.log('Generated token:', token);
-  
-      res.json({ token });
-    } catch (error) {
-      console.error('Login error:', error);
-      res.status(500).json({ message: 'Error during login', error: error.message });
+    if (username === 'admin' && password === '123') {
+      res.json({ message: 'Login successful' });
+    } else {
+      res.status(401).json({ message: 'Invalid credentials' });
     }
   });
+  
   
 
  // ... your other routes ...
