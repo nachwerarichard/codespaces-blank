@@ -127,7 +127,13 @@ router.delete('/:id', async (req, res) => {
     }
   });
   
-  
+  // In your Express backend
+router.get('/api/bookings/:id', async (req, res) => {
+  const booking = await Booking.findById(req.params.id);
+  if (!booking) return res.status(404).json({ error: 'Booking not found' });
+  res.json(booking);
+});
+
 
  // ... your other routes ...
 module.exports = router;
