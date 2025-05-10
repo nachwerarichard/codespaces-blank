@@ -62,6 +62,34 @@ router.get('/admin', async (req, res) => {
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
+    const search = req.query.search || '';
+    const page = parseInt(req.query.page) || 1;
+    const limit = 5;
+    const skip = (page - 1) * limit;
+
+    const query = {
+        $or: [
+            { name: { $regex: search, $options: 'i' } },
+            { email: { $regex: search, $options: 'i' } },
+            { service: { $regex: search, $options: 'i' } },
+        ]
+    };
+
+    try {
+        const total = await Booking.countDocuments(query);
+        const bookings = await Booking.find(query)
+            .skip(skip)
+            .limit(limit)
+            .sort({ date: -1 });
+
+        res.json({
+            bookings,
+            totalPages: Math.ceil(total / limit),
+            currentPage: page
+        });
+    } catch (err) {
+        res.status(500).json({ error: 'Failed to fetch bookings' });
+    }
 });
 
 router.get('/:id', async (req, res) => {
