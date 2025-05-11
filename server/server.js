@@ -9,7 +9,7 @@ const adminRoutes = require('./routes/booking.routes'); // Adjust the path if ne
 
 // ... other imports ...
 const corsOptions = {
-    origin: 'https://glowing-licorice-42e6fa.netlify.app', // Replace with your actual Netlify URL
+    origin: 'https://rainbow-fox-3bad88.netlify.app', // Replace with your actual Netlify URL
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
     credentials: true,
 };
