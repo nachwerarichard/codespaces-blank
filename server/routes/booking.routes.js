@@ -62,33 +62,30 @@ router.get('/admin', async (req, res) => {
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
-    const search = req.query.search || '';
-    const page = parseInt(req.query.page) || 1;
-    const limit = 5;
-    const skip = (page - 1) * limit;
+    const searchTerm = req.query.search;
 
-    const query = {
-        $or: [
-            { name: { $regex: search, $options: 'i' } },
-            { email: { $regex: search, $options: 'i' } },
-            { service: { $regex: search, $options: 'i' } },
-        ]
-    };
+    let query = {};
+
+    if (searchTerm) {
+        const regex = new RegExp(searchTerm, 'i'); // case-insensitive
+        query = {
+            $or: [
+                { service: regex },
+                { name: regex },
+                { email: regex },
+                { time: regex },
+                { date: regex },
+                { _id: regex }
+            ]
+        };
+    }
 
     try {
-        const total = await Booking.countDocuments(query);
-        const bookings = await Booking.find(query)
-            .skip(skip)
-            .limit(limit)
-            .sort({ date: -1 });
-
-        res.json({
-            bookings,
-            totalPages: Math.ceil(total / limit),
-            currentPage: page
-        });
+        const bookings = await Booking.find(query).sort({ date: -1 });
+        res.json(bookings);
     } catch (err) {
-        res.status(500).json({ error: 'Failed to fetch bookings' });
+        console.error('Error fetching bookings:', err);
+        res.status(500).json({ error: 'Server error' });
     }
 });
 
