@@ -87,6 +87,9 @@ router.get('/admin', async (req, res) => {
         console.error('Error fetching bookings:', err);
         res.status(500).json({ error: 'Server error' });
     }
+    console.log('Received request to /admin with query:', req.query); // ✅ Add this
+
+    const searchTerm = req.query.search;
 });
 
 router.get('/:id', async (req, res) => {
