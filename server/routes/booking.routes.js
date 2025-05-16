@@ -55,19 +55,13 @@ router.post('/', async (req, res) => { /* ... your create booking logic ... */ }
 router.get('/availability', async (req, res) => { /* ... your get availability logic ... */ });
 
 // Admin routes
+// GET /admin?search=someSearchTerm
 router.get('/admin', async (req, res) => {
-    try {
-        const bookings = await Booking.find();
-        res.json(bookings);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
     const searchTerm = req.query.search;
-
     let query = {};
 
     if (searchTerm) {
-        const regex = new RegExp(searchTerm, 'i'); // case-insensitive
+        const regex = new RegExp(searchTerm, 'i'); // Case-insensitive search
         query = {
             $or: [
                 { service: regex },
@@ -87,9 +81,8 @@ router.get('/admin', async (req, res) => {
         console.error('Error fetching bookings:', err);
         res.status(500).json({ error: 'Server error' });
     }
-    console.log('Received request to /admin with query:', req.query); // ✅ Add this
-
 });
+
 
 router.get('/:id', async (req, res) => {
     try {
