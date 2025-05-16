@@ -61,15 +61,15 @@ router.get('/admin', async (req, res) => {
     let query = {};
 
     if (searchTerm) {
-        const regex = new RegExp(searchTerm, 'i'); // case-insensitive
+        const regex = new RegExp(searchTerm, 'i');
         query = {
             $or: [
                 { service: regex },
                 { name: regex },
                 { email: regex },
                 { time: regex },
-                { date: regex },
-                { _id: regex }
+                { date: regex }
+                // { _id: regex } <-- removed this line
             ]
         };
     }
@@ -82,6 +82,7 @@ router.get('/admin', async (req, res) => {
         res.status(500).json({ error: 'Server error' });
     }
 });
+
 
 
 router.get('/:id', async (req, res) => {
