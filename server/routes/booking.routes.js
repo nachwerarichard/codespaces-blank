@@ -6,6 +6,49 @@ const jwt = require('jsonwebtoken'); // You'll need this for creating tokens
 const bcrypt = require('bcrypt');  //for password hashing
 const User = require('../models/user.model'); // Import your User model
 
+const mongoose = require('mongoose');
+
+// Define the booking schema (if you haven't already)
+const bookingSchema = new mongoose.Schema({
+    name: String,
+    email: String,
+    service: String,
+    date: Date,
+    time: String,
+    // Add other fields as necessary
+});
+
+// Create the booking model
+const Booking = mongoose.model('Booking', bookingSchema);
+
+// Route to get all bookings (for admin)
+router.get('/admin', async (req, res) => {
+    try {
+        const searchTerm = req.query.search;
+        let query = {};
+
+        if (searchTerm) {
+            // Case-insensitive search across multiple fields
+            query = {
+                $or: [
+                    { name: { $regex: new RegExp(searchTerm, 'i') } },
+                    { email: { $regex: new RegExp(searchTerm, 'i') } },
+                    { service: { $regex: new RegExp(searchTerm, 'i') } },
+                ],
+            };
+        }
+
+        const bookings = await Booking.find(query);
+        res.json(bookings);
+    } catch (error) {
+        console.error('Error fetching bookings:', error);
+        res.status(500).json({ error: 'Failed to fetch bookings: ' + error.message });
+    }
+});
+
+// Route to delete a booking
+
+
 
   // Secret key for JWT (store this in an environment variable)
 router.post('/', async (req, res) => {
@@ -56,32 +99,7 @@ router.get('/availability', async (req, res) => { /* ... your get availability l
 
 // Admin routes
 // GET /admin?search=someSearchTerm
-router.get('/admin', async (req, res) => {
-    const searchTerm = req.query.search;
-    let query = {};
 
-    if (searchTerm) {
-        const regex = new RegExp(searchTerm, 'i');
-        query = {
-            $or: [
-                { service: regex },
-                { name: regex },
-                { email: regex },
-                { time: regex },
-                { date: regex }
-                // { _id: regex } <-- removed this line
-            ]
-        };
-    }
-
-    try {
-        const bookings = await Booking.find(query).sort({ date: -1 });
-        res.json(bookings);
-    } catch (err) {
-        console.error('Error fetching bookings:', err);
-        res.status(500).json({ error: 'Server error' });
-    }
-});
 
 
 
