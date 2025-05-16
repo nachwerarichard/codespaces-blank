@@ -61,7 +61,7 @@ router.get('/admin', async (req, res) => {
     let query = {};
 
     if (searchTerm) {
-        const regex = new RegExp(searchTerm, 'i'); // Case-insensitive search
+        const regex = new RegExp(searchTerm, 'i'); // case-insensitive
         query = {
             $or: [
                 { service: regex },
