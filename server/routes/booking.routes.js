@@ -1,12 +1,10 @@
 const express = require('express');
 const router = express.Router();
-const Booking = require('../models/booking.model');
-const { sendBookingConfirmationEmail } = require('../utils/mailer'); // Import your mailer function
-const jwt = require('jsonwebtoken'); // You'll need this for creating tokens
-const bcrypt = require('bcrypt');  //for password hashing
-const User = require('../models/user.model'); // Import your User model
-
 const mongoose = require('mongoose');
+const { sendBookingConfirmationEmail } = require('../utils/mailer');
+const jwt = require('jsonwebtoken');
+const bcrypt = require('bcrypt');
+const User = require('../models/user.model');
 
 // Define the booking schema (if you haven't already)
 const bookingSchema = new mongoose.Schema({
@@ -19,16 +17,24 @@ const bookingSchema = new mongoose.Schema({
 });
 
 // Create the booking model
-const Booking = mongoose.model('Booking', bookingSchema);
+let Booking;
+try {
+    Booking = mongoose.model('Booking', bookingSchema);
+} catch (error) {
+    if (error.name === 'OverwriteModelError') {
+        Booking = mongoose.model('Booking');
+    } else {
+        throw error;
+    }
+}
 
-// Route to get all bookings (for admin)
+// Admin routes
 router.get('/admin', async (req, res) => {
     try {
         const searchTerm = req.query.search;
         let query = {};
 
         if (searchTerm) {
-            // Case-insensitive search across multiple fields
             query = {
                 $or: [
                     { name: { $regex: new RegExp(searchTerm, 'i') } },
@@ -45,61 +51,6 @@ router.get('/admin', async (req, res) => {
         res.status(500).json({ error: 'Failed to fetch bookings: ' + error.message });
     }
 });
-
-// Route to delete a booking
-
-
-
-  // Secret key for JWT (store this in an environment variable)
-router.post('/', async (req, res) => {
-    try {
-        const { service, date, time, name, email } = req.body;
-
-        const newBooking = new Booking({
-            service,
-            date,
-            time,
-            name,
-            email
-        });
-
-        const booking = await newBooking.save();
-
-        // Send confirmation email
-        const managerEmail = 'nachwerarichard@gmail.com';
-        const stakeholderEmails = ['nachwerarichy@gmail.com'];
-        const clientEmail = booking.email;
-
-        const emailResult = await sendBookingConfirmationEmail(
-            booking,
-            managerEmail,
-            stakeholderEmails,
-            clientEmail
-        );
-
-        if (emailResult.success) {
-            res.status(201).json({ message: 'Booking successful and confirmation email sent!', booking });
-        } else {
-            res.status(201).json({ message: 'Booking successful, but failed to send email.', booking, emailError: emailResult.error });
-        }
-
-    } catch (err) {
-        console.error(err.message);
-        res.status(500).json({ error: 'Server error' });
-    }
-});
-
-
-// server/routes/booking.routes.js
-
-
-// Public route
-router.post('/', async (req, res) => { /* ... your create booking logic ... */ });
-router.get('/availability', async (req, res) => { /* ... your get availability logic ... */ });
-
-// Admin routes
-// GET /admin?search=someSearchTerm
-
 
 
 
@@ -137,6 +88,8 @@ router.post('/manual', async (req, res) => {
     }
 });
 
+
+
 router.delete('/:id', async (req, res) => {
     try {
         const deletedBooking = await Booking.findByIdAndDelete(req.params.id);
@@ -149,30 +102,58 @@ router.delete('/:id', async (req, res) => {
     }
 });
 
+// Public route to create a booking
+router.post('/', async (req, res) => {
+    try {
+        const { service, date, time, name, email } = req.body;
 
- // Secret key for JWT (store this in an environment variable)
- const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';  // Use a default only if not in .env
+        const newBooking = new Booking({
+            service,
+            date,
+            time,
+            name,
+            email,
+        });
 
- // ... your other routes ...
- router.post('/login', (req, res) => {
-    // your admin login logic here
+        const booking = await newBooking.save();
+
+        // Send confirmation email
+        const managerEmail = 'nachwerarichard@gmail.com';
+        const stakeholderEmails = ['nachwerarichy@gmail.com'];
+        const clientEmail = booking.email;
+
+        const emailResult = await sendBookingConfirmationEmail(
+            booking,
+            managerEmail,
+            stakeholderEmails,
+            clientEmail
+        );
+
+        if (emailResult.success) {
+            res.status(201).json({ message: 'Booking successful and confirmation email sent!', booking });
+        } else {
+            res.status(201).json({ message: 'Booking successful, but failed to send email.', booking, emailError: emailResult.error });
+        }
+
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+//  login route
+router.post('/login', (req, res) => {
+    //  your admin login logic here
     const { username, password } = req.body;
-  
+
     // For example only:
     if (username === 'admin' && password === '123') {
-      return res.json({ message: 'Login successful!' });
+        return res.json({ message: 'Login successful!' });
     } else {
-      return res.status(401).json({ message: 'Invalid credentials' });
+        return res.status(401).json({ message: 'Invalid credentials' });
     }
-  });
-  
-  // In your Express backend
-router.get('/api/bookings/:id', async (req, res) => {
-  const booking = await Booking.findById(req.params.id);
-  if (!booking) return res.status(404).json({ error: 'Booking not found' });
-  res.json(booking);
 });
 
 
- // ... your other routes ...
+
 module.exports = router;
