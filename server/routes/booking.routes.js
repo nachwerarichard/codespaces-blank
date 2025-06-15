@@ -110,6 +110,26 @@ router.post('/:id/assign-room', async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 });
+router.post('/assign-room', async (req, res) => {
+  const { bookingId, roomId } = req.body;
+  try {
+    const room = await Room.findById(roomId);
+    if (!room || room.status === 'occupied') {
+      return res.status(400).json({ error: 'Room not available' });
+    }
+
+    // Update room status
+    room.status = 'occupied';
+    await room.save();
+
+    // Optionally update booking with room info
+    await Booking.findByIdAndUpdate(bookingId, { roomNumber: room.roomNumber });
+
+    res.json({ message: 'Room assigned' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 // Define the booking schema (if you haven't already)
 const bookingSchema = new mongoose.Schema({
