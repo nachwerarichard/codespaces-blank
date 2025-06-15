@@ -155,6 +155,39 @@ router.post('/', async (req, res) => {
         res.status(500).json({ error: 'Server error' });
     }
 });
+router.put('/assign-room/:id', async (req, res) => {
+  try {
+    const { roomNumber } = req.body;
+
+    // Check for overlapping bookings for that room
+    const booking = await Booking.findById(req.params.id);
+    if (!booking) return res.status(404).json({ message: 'Booking not found' });
+
+    const conflict = await Booking.findOne({
+      roomNumber,
+      _id: { $ne: booking._id },
+      $or: [
+        {
+          date: {
+            $gte: new Date(booking.date),
+            $lt: new Date(new Date(booking.date).getTime() + 24 * 60 * 60 * 1000),
+          },
+        },
+      ],
+    });
+
+    if (conflict) {
+      return res.status(400).json({ message: 'Room already booked for that date' });
+    }
+
+    booking.roomNumber = roomNumber;
+    await booking.save();
+
+    res.json({ message: 'Room assigned successfully', booking });
+  } catch (error) {
+    res.status(500).json({ message: 'Error assigning room', error: error.message });
+  }
+});
 
 router.get('/room-calendar', async (req, res) => {
     try {
