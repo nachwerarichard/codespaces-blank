@@ -11,11 +11,8 @@ const bookingSchema = new mongoose.Schema({
     name: String,
     email: String,
     service: String,
-    roomNumber: String, // or roomId if using a separate Room model
-    checkInDate: Date,
-    checkOutDate: Date,
+    date: Date,
     time: String,
-    
     // Add other fields as necessary
 });
 
@@ -109,19 +106,7 @@ router.delete('/:id', async (req, res) => {
 router.post('/', async (req, res) => {
     try {
         const { service, date, time, name, email } = req.body;
-        const overlappingBooking = await Booking.findOne({
-            roomNumber,
-            $or: [
-                {
-                    checkInDate: { $lt: new Date(checkOutDate) },
-                    checkOutDate: { $gt: new Date(checkInDate) },
-                },
-            ],
-        });
 
-        if (overlappingBooking) {
-            return res.status(400).json({ message: 'Room is already booked for the selected dates.' });
-        }
         const newBooking = new Booking({
             service,
             date,
@@ -153,80 +138,6 @@ router.post('/', async (req, res) => {
     } catch (err) {
         console.error(err.message);
         res.status(500).json({ error: 'Server error' });
-    }
-});
-router.put('/assign-room/:id', async (req, res) => {
-  try {
-    const { roomNumber } = req.body;
-
-    // Check for overlapping bookings for that room
-    const booking = await Booking.findById(req.params.id);
-    if (!booking) return res.status(404).json({ message: 'Booking not found' });
-
-    const conflict = await Booking.findOne({
-      roomNumber,
-      _id: { $ne: booking._id },
-      $or: [
-        {
-          date: {
-            $gte: new Date(booking.date),
-            $lt: new Date(new Date(booking.date).getTime() + 24 * 60 * 60 * 1000),
-          },
-        },
-      ],
-    });
-
-    if (conflict) {
-      return res.status(400).json({ message: 'Room already booked for that date' });
-    }
-
-    booking.roomNumber = roomNumber;
-    await booking.save();
-
-    res.json({ message: 'Room assigned successfully', booking });
-  } catch (error) {
-    res.status(500).json({ message: 'Error assigning room', error: error.message });
-  }
-});
-
-router.get('/booked-rooms/:date', async (req, res) => {
-  try {
-    const date = new Date(req.params.date);
-    const start = new Date(date.setHours(0, 0, 0, 0));
-    const end = new Date(date.setHours(23, 59, 59, 999));
-
-    const bookings = await Booking.find({
-      date: { $gte: start, $lte: end },
-      roomNumber: { $ne: null }
-    });
-
-    const bookedRooms = bookings.map(b => b.roomNumber);
-    res.json({ bookedRooms });
-  } catch (err) {
-    res.status(500).json({ message: 'Failed to fetch booked rooms', error: err.message });
-  }
-});
-
-router.get('/room-calendar', async (req, res) => {
-    try {
-        const bookings = await Booking.find({});
-        const calendarView = {};
-
-        bookings.forEach((booking) => {
-            const room = booking.roomNumber;
-            if (!calendarView[room]) calendarView[room] = [];
-
-            calendarView[room].push({
-                name: booking.name,
-                email: booking.email,
-                checkInDate: booking.checkInDate,
-                checkOutDate: booking.checkOutDate,
-            });
-        });
-
-        res.json(calendarView);
-    } catch (error) {
-        res.status(500).json({ message: 'Error generating room calendar', error: error.message });
     }
 });
 
