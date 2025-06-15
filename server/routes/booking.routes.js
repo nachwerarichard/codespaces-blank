@@ -189,6 +189,24 @@ router.put('/assign-room/:id', async (req, res) => {
   }
 });
 
+router.get('/booked-rooms/:date', async (req, res) => {
+  try {
+    const date = new Date(req.params.date);
+    const start = new Date(date.setHours(0, 0, 0, 0));
+    const end = new Date(date.setHours(23, 59, 59, 999));
+
+    const bookings = await Booking.find({
+      date: { $gte: start, $lte: end },
+      roomNumber: { $ne: null }
+    });
+
+    const bookedRooms = bookings.map(b => b.roomNumber);
+    res.json({ bookedRooms });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to fetch booked rooms', error: err.message });
+  }
+});
+
 router.get('/room-calendar', async (req, res) => {
     try {
         const bookings = await Booking.find({});
