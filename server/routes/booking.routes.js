@@ -11,8 +11,11 @@ const bookingSchema = new mongoose.Schema({
     name: String,
     email: String,
     service: String,
-    date: Date,
+    roomNumber: String, // or roomId if using a separate Room model
+    checkInDate: Date,
+    checkOutDate: Date,
     time: String,
+    
     // Add other fields as necessary
 });
 
@@ -106,7 +109,19 @@ router.delete('/:id', async (req, res) => {
 router.post('/', async (req, res) => {
     try {
         const { service, date, time, name, email } = req.body;
+        const overlappingBooking = await Booking.findOne({
+            roomNumber,
+            $or: [
+                {
+                    checkInDate: { $lt: new Date(checkOutDate) },
+                    checkOutDate: { $gt: new Date(checkInDate) },
+                },
+            ],
+        });
 
+        if (overlappingBooking) {
+            return res.status(400).json({ message: 'Room is already booked for the selected dates.' });
+        }
         const newBooking = new Booking({
             service,
             date,
@@ -138,6 +153,29 @@ router.post('/', async (req, res) => {
     } catch (err) {
         console.error(err.message);
         res.status(500).json({ error: 'Server error' });
+    }
+});
+
+router.get('/room-calendar', async (req, res) => {
+    try {
+        const bookings = await Booking.find({});
+        const calendarView = {};
+
+        bookings.forEach((booking) => {
+            const room = booking.roomNumber;
+            if (!calendarView[room]) calendarView[room] = [];
+
+            calendarView[room].push({
+                name: booking.name,
+                email: booking.email,
+                checkInDate: booking.checkInDate,
+                checkOutDate: booking.checkOutDate,
+            });
+        });
+
+        res.json(calendarView);
+    } catch (error) {
+        res.status(500).json({ message: 'Error generating room calendar', error: error.message });
     }
 });
 
