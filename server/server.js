@@ -7,6 +7,9 @@ const app = express();
 const cors = require('cors');
 const adminRoutes = require('./routes/booking.routes'); // Adjust the path if needed
 
+// --- NEW Route Import for Rooms ---
+const roomRoutes = require('./routes/rooms');
+// --- END NEW Route Import ---
 // ... other imports ...
 const corsOptions = {
     origin: 'https://rainbow-fox-3bad88.netlify.app', // Replace with your actual Netlify URL
@@ -23,6 +26,9 @@ app.use(bodyParser.json());
 // app.use(express.static(path.join(__dirname, '../public')));
 // Use Routes
 app.use('/api/bookings', bookingRoutes);
+// --- NEW Route Usage for Rooms ---
+app.use('/api/rooms', roomRoutes); // All /api/rooms requests will be handled by roomRoutes
+// --- END NEW Route Usage ---
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 
