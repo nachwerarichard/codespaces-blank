@@ -1,8 +1,8 @@
 // models/room.model.js
 const mongoose = require('mongoose');
 
-const roomSchema = new mongoose.Schema({
-
+// Check if the 'Room' model already exists to prevent recompilation
+const Room = mongoose.models.Room || mongoose.model('Room', new mongoose.Schema({
     roomNumber: {
         type: String,
         required: true,
@@ -35,8 +35,6 @@ const roomSchema = new mongoose.Schema({
         type: [String],
         default: []
     },
-    // Optional: Link to the current booking if the room is occupied
-    // This will be crucial for availability checking later
     currentBooking: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Booking', // Refers to your Booking model
@@ -45,12 +43,12 @@ const roomSchema = new mongoose.Schema({
     notes: { // Any specific notes about the room
         type: String,
         trim: true
-    }, // <--- ADD A COMMA HERE!
+    },
     totalReservations: {
         type: Number,
         default: 0
     }
-}, { timestamps: true }); // Adds createdAt and updatedAt timestamps
+}, { timestamps: true })); // Adds createdAt and updatedAt timestamps
 
 
-module.exports = mongoose.model('Room', roomSchema);
+module.exports = Room; // Export the 'Room' model
