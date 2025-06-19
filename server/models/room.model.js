@@ -2,7 +2,7 @@
 const mongoose = require('mongoose');
 
 const roomSchema = new mongoose.Schema({
-     
+
     roomNumber: {
         type: String,
         required: true,
@@ -45,8 +45,8 @@ const roomSchema = new mongoose.Schema({
     notes: { // Any specific notes about the room
         type: String,
         trim: true
-    }
-     totalReservations: {
+    }, // <--- ADD A COMMA HERE!
+    totalReservations: {
         type: Number,
         default: 0
     }
