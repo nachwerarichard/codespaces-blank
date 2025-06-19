@@ -13,8 +13,19 @@ const bookingSchema = new mongoose.Schema({
     service: String,
     date: Date,
     time: String,
+    roomNumber: String, // newly added field
+
     // Add other fields as necessary
 });
+const roomSchema = new mongoose.Schema({
+  number: String,
+  type: String,
+  capacity: Number,
+  price: Number,
+  status: String, // Available, Occupied, etc.
+  features: [String],
+});
+const Room = mongoose.model('Room', roomSchema);
 
 // Create the booking model
 let Booking;
@@ -86,6 +97,15 @@ router.post('/manual', async (req, res) => {
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
+    const isRoomBooked = await Booking.findOne({
+  roomNumber,
+  date: new Date(date),
+});
+
+if (isRoomBooked) {
+  return res.status(400).json({ error: 'Room already booked for this date.' });
+}
+
 });
 
 
@@ -152,6 +172,29 @@ router.post('/login', (req, res) => {
     } else {
         return res.status(401).json({ message: 'Invalid credentials' });
     }
+});
+router.put('/assign-room/:id', async (req, res) => {
+  const { roomNumber, date } = req.body;
+  const bookingId = req.params.id;
+
+  try {
+    const existingBooking = await Booking.findOne({ roomNumber, date });
+
+    if (existingBooking && existingBooking._id.toString() !== bookingId) {
+      return res.status(400).json({ error: 'Room already booked for this date.' });
+    }
+
+    const updatedBooking = await Booking.findByIdAndUpdate(
+      bookingId,
+      { roomNumber },
+      { new: true }
+    );
+
+    res.json({ message: 'Room assigned successfully', updatedBooking });
+
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
 
