@@ -2,6 +2,7 @@
 const mongoose = require('mongoose');
 
 const roomSchema = new mongoose.Schema({
+     
     roomNumber: {
         type: String,
         required: true,
@@ -46,5 +47,6 @@ const roomSchema = new mongoose.Schema({
         trim: true
     }
 }, { timestamps: true }); // Adds createdAt and updatedAt timestamps
+
 
 module.exports = mongoose.model('Room', roomSchema);
