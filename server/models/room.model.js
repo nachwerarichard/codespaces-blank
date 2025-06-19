@@ -46,6 +46,10 @@ const roomSchema = new mongoose.Schema({
         type: String,
         trim: true
     }
+     totalReservations: {
+        type: Number,
+        default: 0
+    }
 }, { timestamps: true }); // Adds createdAt and updatedAt timestamps
 
 
