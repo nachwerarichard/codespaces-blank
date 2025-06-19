@@ -90,25 +90,76 @@ router.put('/:id', async (req, res) => {
 });
 
 router.post('/manual', async (req, res) => {
-    try {
-        const newBooking = new Booking(req.body);
-        const savedBooking = await newBooking.save();
-        res.status(201).json(savedBooking);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
+  try {
+    const { name, email, service, date, time, roomNumber } = req.body;
+
+    // Check for booking conflict
     const isRoomBooked = await Booking.findOne({
-  roomNumber,
-  date: new Date(date),
+      roomNumber,
+      date: new Date(date)
+    });
+
+    if (isRoomBooked) {
+      return res.status(400).json({ error: 'Room already booked for this date.' });
+    }
+
+    // Save the booking
+    const newBooking = new Booking({
+      name,
+      email,
+      service,
+      date,
+      time,
+      roomNumber
+    });
+
+    const savedBooking = await newBooking.save();
+
+    // ✅ Increment room reservation count
+    await Room.findOneAndUpdate(
+      { number: roomNumber },
+      { $inc: { totalReservations: 1 } }
+    );
+
+    res.status(201).json(savedBooking);
+
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
-if (isRoomBooked) {
-  return res.status(400).json({ error: 'Room already booked for this date.' });
-}
+router.put('/assign-room/:id', async (req, res) => {
+  const { roomNumber, date } = req.body;
+  const bookingId = req.params.id;
 
+  try {
+    const existingBooking = await Booking.findOne({ roomNumber, date });
+
+    if (existingBooking && existingBooking._id.toString() !== bookingId) {
+      return res.status(400).json({ error: 'Room already booked for this date.' });
+    }
+
+    const currentBooking = await Booking.findById(bookingId);
+    const updatedBooking = await Booking.findByIdAndUpdate(
+      bookingId,
+      { roomNumber },
+      { new: true }
+    );
+
+    // ✅ Only increase reservation count if assigning a new room
+    if (!currentBooking.roomNumber && roomNumber) {
+      await Room.findOneAndUpdate(
+        { number: roomNumber },
+        { $inc: { totalReservations: 1 } }
+      );
+    }
+
+    res.json({ message: 'Room assigned successfully', updatedBooking });
+
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
-
-
 
 router.delete('/:id', async (req, res) => {
     try {
