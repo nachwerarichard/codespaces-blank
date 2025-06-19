@@ -38,12 +38,7 @@ const BookingSchema = new mongoose.Schema({
         default: Date.now
     }
 });
-room: { type: mongoose.Schema.Types.ObjectId, ref: 'Room', default: null },
-roomNumber: { type: String, default: null }, // Denormalized for easy display
-status: { type: String, enum: ['Pending', 'Confirmed', 'Checked-In', 'Checked-Out', 'Cancelled'], default: 'Pending' },
-checkInDate: { type: Date, required: true },
-checkOutDate: { type: Date, required: true },
-numberOfGuests: { type: Number, default: 1 } // New field
+
 
 module.exports = mongoose.model('RoomBlock', roomBlockSchema);
 module.exports = mongoose.model('Booking', BookingSchema);
