@@ -11,8 +11,12 @@ const bookingSchema = new mongoose.Schema({
     name: String,
     email: String,
     service: String,
-    date: Date,
+    idate: Date,
+    idate: Date,
     time: String,
+    total: String,
+    paid: String,
+    balance: String
     // Add other fields as necessary
 });
 
