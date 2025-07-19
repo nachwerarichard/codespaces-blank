@@ -5,20 +5,24 @@ const BookingSchema = new mongoose.Schema({
         type: String,
         required: true
     },
-    // Keep idate and odate for check-in/check-out for room bookings
+    // For Room Bookings: Check-in and Check-out Dates
     idate: { // Check-in Date
         type: Date,
-        required: function() { return this.service === 'room'; } // Required only for room bookings
+        // Required only if service is 'room'. 'date' will be used otherwise.
+        required: function() { return this.service === 'room'; }
     },
     odate: { // Check-out Date
         type: Date,
-        required: function() { return this.service === 'room'; } // Required only for room bookings
+        // Required only if service is 'room'.
+        required: function() { return this.service === 'room'; }
     },
-    date: { // For appointment date (if service is not 'room')
+    // For Appointment Bookings: Single Date
+    date: {
         type: Date,
-        required: function() { return this.service !== 'room'; } // Required only for non-room bookings
+        // Required only if service is NOT 'room'.
+        required: function() { return this.service !== 'room'; }
     },
-    time: {
+    time: { // For appointments, or a default check-in time for rooms
         type: String,
         required: true
     },
@@ -30,39 +34,38 @@ const BookingSchema = new mongoose.Schema({
         type: String,
         required: true
     },
-    bookingDate: {
+    bookingDate: { // When the booking was created in the system
         type: Date,
         default: Date.now
     },
-    assignedRoom: {
+    assignedRoom: { // Reference to the Room document if it's a room booking
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Room',
-        default: null // The room assigned to this booking
+        default: null
     },
-    totalAmount: {
+    numberOfGuests: { // Useful for room bookings
+        type: Number,
+        default: 1
+    },
+    totalAmount: { // Total cost of the booking
         type: Number,
         default: 0
     },
-    amountPaid: {
+    amountPaid: { // Amount already paid by the customer
         type: Number,
         default: 0
     },
-    paymentStatus: {
+    paymentStatus: { // Calculated based on totalAmount and amountPaid
         type: String,
-        enum: ['pending', 'paid', 'partially_paid', 'refunded'],
+        enum: ['pending', 'partially_paid', 'paid', 'refunded'],
         default: 'pending'
     },
     paymentMethod: {
         type: String,
         enum: ['cash', 'card', 'mobile_money', 'bank_transfer', null],
-        default: null // Set when payment is made
+        default: null // Null if no payment yet
     },
-    // Added for room specific details if needed directly in booking
-    numberOfGuests: {
-        type: Number,
-        default: 1
-    },
-    status: { // Status of the booking itself (e.g., 'confirmed', 'cancelled', 'completed')
+    status: { // Status of the booking itself (e.g., pending confirmation, confirmed, cancelled, completed)
         type: String,
         enum: ['pending', 'confirmed', 'cancelled', 'completed'],
         default: 'pending'
