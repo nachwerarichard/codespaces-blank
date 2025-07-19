@@ -1,41 +1,29 @@
 const express = require('express');
 const router = express.Router();
-const Booking = require('../models/booking.model'); // Import your Booking model (correct one!)
-const Room = require('../models/room.model'); // Import the new Room model
+const mongoose = require('mongoose');
+const Booking = require('../models/booking.model'); // Ensure this is the correct path to the updated model
+const Room = require('../models/room.model');     // Import the new Room model
 const { sendBookingConfirmationEmail } = require('../utils/mailer');
 const jwt = require('jsonwebtoken');
-const bcrypt = require('bcrypt');
-const User = require('../models/user.model'); // For user authentication (admin/housekeeper)
-const auth = require('../middleware/auth'); // Middleware for role-based authorization
+const auth = require('../middleware/auth'); // Import the auth middleware
 
-// --- IMPORTANT: REMOVE THIS DUPLICATE SCHEMA DEFINITION. Rely on booking.model.js ---
+// IMPORTANT: REMOVE any duplicate schema definition here. Rely solely on models/booking.model.js
+// If you have a section like:
 /*
-const bookingSchema = new mongoose.Schema({
-    name: String,
-    email: String,
-    service: String,
-    idate: Date,
-    odate: Date, // This should be 'odate' not 'idate' again
-    time: String,
-    total: String,
-    paid: String,
-    balance: String
-});
+const bookingSchema = new mongoose.Schema({ ... });
 let Booking;
 try {
-    Booking = mongoose.model('Booking', bookingSchema);
-} catch (error) {
-    if (error.name === 'OverwriteModelError') {
-        Booking = mongoose.model('Booking');
-    } else {
-        throw error;
-    }
-}
+  Booking = mongoose.model('Booking', bookingSchema);
+} catch (error) { ... }
 */
-// --- END OF DUPLICATE SCHEMA REMOVAL ---
+// DELETE THAT SECTION. It conflicts with your central booking.model.js.
+
+// Secret for JWT. In a real app, use process.env.JWT_SECRET
+const JWT_SECRET = process.env.JWT_SECRET || 'supersecretkey_change_me';
 
 
 // Helper function to calculate total amount for a room booking
+// This function needs to fetch the room price from the Room model
 async function calculateRoomBookingAmount(roomId, checkInDate, checkOutDate) {
     const room = await Room.findById(roomId);
     if (!room) {
@@ -44,6 +32,12 @@ async function calculateRoomBookingAmount(roomId, checkInDate, checkOutDate) {
 
     const start = new Date(checkInDate);
     const end = new Date(checkOutDate);
+
+    // Ensure dates are valid and check-out is after check-in
+    if (isNaN(start.getTime()) || isNaN(end.getTime()) || start >= end) {
+        throw new Error('Invalid check-in or check-out dates.');
+    }
+
     const timeDiff = Math.abs(end.getTime() - start.getTime());
     const diffDays = Math.ceil(timeDiff / (1000 * 3600 * 24)); // Number of nights
 
@@ -51,8 +45,11 @@ async function calculateRoomBookingAmount(roomId, checkInDate, checkOutDate) {
 }
 
 
-// Admin: Get all bookings (with search and potentially populated room info)
-router.get('/admin', auth(['admin']), async (req, res) => { // Added auth middleware
+// ADMIN Routes (require 'admin' role)
+// ------------------------------------
+
+// Get all bookings (Admin only, with optional search)
+router.get('/admin', auth(['admin']), async (req, res) => {
     try {
         const searchTerm = req.query.search;
         let query = {};
@@ -63,10 +60,10 @@ router.get('/admin', auth(['admin']), async (req, res) => { // Added auth middle
                     { name: { $regex: new RegExp(searchTerm, 'i') } },
                     { email: { $regex: new RegExp(searchTerm, 'i') } },
                     { service: { $regex: new RegExp(searchTerm, 'i') } },
+                    // You might want to search by room number as well, requires more complex populate/lookup
                 ],
             };
         }
-
         // Populate assignedRoom details for admin view
         const bookings = await Booking.find(query).populate('assignedRoom');
         res.json(bookings);
@@ -76,10 +73,10 @@ router.get('/admin', auth(['admin']), async (req, res) => { // Added auth middle
     }
 });
 
-// Admin: Get a single booking
-router.get('/:id', auth(['admin']), async (req, res) => { // Added auth middleware
+// Get a single booking by ID (Admin only)
+router.get('/:id', auth(['admin']), async (req, res) => {
     try {
-        const booking = await Booking.findById(req.params.id).populate('assignedRoom'); // Populate room
+        const booking = await Booking.findById(req.params.id).populate('assignedRoom');
         if (!booking) {
             return res.status(404).json({ message: 'Booking not found' });
         }
@@ -89,27 +86,34 @@ router.get('/:id', auth(['admin']), async (req, res) => { // Added auth middlewa
     }
 });
 
-// Admin: Update a booking (including payment status)
-router.put('/:id', auth(['admin']), async (req, res) => { // Added auth middleware
+// Update a booking (Admin only)
+router.put('/:id', auth(['admin']), async (req, res) => {
     try {
         const {
             service, idate, odate, date, time, name, email,
-            assignedRoom, totalAmount, amountPaid, paymentMethod, status // New fields
+            assignedRoom, totalAmount, amountPaid, paymentMethod, status, numberOfGuests
         } = req.body;
 
         const updatedFields = {
-            service, time, name, email, assignedRoom, totalAmount, amountPaid, paymentMethod, status
+            service, time, name, email, assignedRoom, totalAmount, amountPaid, paymentMethod, status, numberOfGuests
         };
 
         // Handle date fields based on service type
         if (service === 'room') {
-            updatedFields.idate = idate;
-            updatedFields.odate = odate;
+            updatedFields.idate = new Date(idate);
+            updatedFields.odate = new Date(odate);
             updatedFields.date = undefined; // Ensure appointment date is not set for room bookings
+            // Validate room dates
+            if (isNaN(updatedFields.idate.getTime()) || isNaN(updatedFields.odate.getTime()) || updatedFields.idate >= updatedFields.odate) {
+                 return res.status(400).json({ message: 'Invalid check-in or check-out dates for room booking.' });
+            }
         } else {
-            updatedFields.date = date;
+            updatedFields.date = new Date(date);
             updatedFields.idate = undefined; // Ensure room dates are not set for appointments
             updatedFields.odate = undefined;
+             if (isNaN(updatedFields.date.getTime())) {
+                 return res.status(400).json({ message: 'Invalid date for appointment booking.' });
+            }
         }
 
         // Calculate paymentStatus based on amountPaid and totalAmount
@@ -121,6 +125,16 @@ router.put('/:id', auth(['admin']), async (req, res) => { // Added auth middlewa
             } else {
                 updatedFields.paymentStatus = 'pending';
             }
+        } else {
+            // If totalAmount or amountPaid are not provided, ensure paymentStatus is not 'paid' or 'partially_paid'
+            if (updatedFields.paymentStatus === 'paid' || updatedFields.paymentStatus === 'partially_paid') {
+                updatedFields.paymentStatus = 'pending'; // Reset if amounts not provided
+            }
+        }
+
+        const oldBooking = await Booking.findById(req.params.id);
+        if (!oldBooking) {
+            return res.status(404).json({ message: 'Booking not found' });
         }
 
         const updatedBooking = await Booking.findByIdAndUpdate(req.params.id, updatedFields, { new: true });
@@ -129,50 +143,93 @@ router.put('/:id', auth(['admin']), async (req, res) => { // Added auth middlewa
             return res.status(404).json({ message: 'Booking not found' });
         }
 
+        // Logic for blocking/unblocking rooms based on booking status and assigned room
+        if (oldBooking.assignedRoom && String(oldBooking.assignedRoom) !== String(updatedBooking.assignedRoom)) {
+            // Room assignment changed or removed, unblock old room
+            await Room.findByIdAndUpdate(oldBooking.assignedRoom, { currentBooking: null });
+        }
+
+        if (updatedBooking.service === 'room' && updatedBooking.assignedRoom) {
+            // Check for availability only if a room is assigned and status is confirmed/pending
+            if (updatedBooking.status === 'confirmed' || updatedBooking.status === 'pending') {
+                const overlappingBookings = await Booking.findOne({
+                    _id: { $ne: updatedBooking._id }, // Exclude current booking itself
+                    assignedRoom: updatedBooking.assignedRoom,
+                    status: { $in: ['pending', 'confirmed'] },
+                    $or: [
+                        { idate: { $lt: updatedBooking.odate }, odate: { $gt: updatedBooking.idate } }
+                    ]
+                });
+
+                if (overlappingBookings) {
+                    // Revert the update if it causes an overlap
+                    await Booking.findByIdAndUpdate(req.params.id, oldBooking); // Revert to old state
+                    return res.status(400).json({ message: 'Assigned room is not available for the updated dates.' });
+                }
+
+                // Block the room if the booking is confirmed or pending
+                await Room.findByIdAndUpdate(updatedBooking.assignedRoom, { currentBooking: updatedBooking._id });
+            } else {
+                // If booking status is cancelled/completed, unblock the room
+                await Room.findByIdAndUpdate(updatedBooking.assignedRoom, { currentBooking: null });
+            }
+        }
+
+
         res.json(updatedBooking);
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        console.error('Error updating booking:', error);
+        res.status(500).json({ error: 'Failed to update booking: ' + error.message });
     }
 });
 
-// Admin: Manually create a booking (can assign room)
-router.post('/manual', auth(['admin']), async (req, res) => { // Added auth middleware
+// Manually create a booking (Admin only, can assign room and set payment details)
+router.post('/manual', auth(['admin']), async (req, res) => {
     try {
         const {
             service, idate, odate, date, time, name, email,
-            assignedRoom, totalAmount, amountPaid, paymentMethod, numberOfGuests
+            assignedRoom, totalAmount, amountPaid, paymentMethod, numberOfGuests, status
         } = req.body;
 
         let bookingTotalAmount = totalAmount;
         let selectedRoom = null;
+        let finalBookingStatus = status || 'pending'; // Default to pending if not provided
 
-        if (service === 'room' && assignedRoom) {
-            // Check if room is available for the given dates
-            const existingBookingsForRoom = await Booking.find({
-                assignedRoom: assignedRoom,
-                status: { $in: ['pending', 'confirmed'] }, // Consider active bookings
-                $or: [
-                    { idate: { $lt: new Date(odate) }, odate: { $gt: new Date(idate) } }, // Overlapping dates
-                ]
-            });
-
-            if (existingBookingsForRoom.length > 0) {
-                return res.status(400).json({ message: 'Selected room is not available for the specified dates.' });
+        if (service === 'room') {
+            if (!idate || !odate || new Date(idate) >= new Date(odate)) {
+                return res.status(400).json({ message: 'Check-in and check-out dates are required and valid for room booking.' });
             }
+            if (assignedRoom) {
+                // Check if the assigned room is available for the given dates
+                const overlappingBooking = await Booking.findOne({
+                    assignedRoom: assignedRoom,
+                    status: { $in: ['pending', 'confirmed'] }, // Consider actively booked rooms
+                    $or: [
+                        { idate: { $lt: new Date(odate) }, odate: { $gt: new Date(idate) } }
+                    ]
+                });
 
-            // Calculate total amount based on room price and duration if not provided
-            if (!totalAmount) {
-                bookingTotalAmount = await calculateRoomBookingAmount(assignedRoom, idate, odate);
+                if (overlappingBooking) {
+                    return res.status(400).json({ message: 'Selected room is not available for the specified dates.' });
+                }
+
+                selectedRoom = await Room.findById(assignedRoom);
+                if (!selectedRoom) {
+                    return res.status(400).json({ message: 'Assigned room not found.' });
+                }
+                if (!bookingTotalAmount) { // Calculate if totalAmount is not provided
+                    bookingTotalAmount = await calculateRoomBookingAmount(assignedRoom, idate, odate);
+                }
             }
-            selectedRoom = await Room.findById(assignedRoom);
-            if (!selectedRoom) {
-                return res.status(400).json({ message: 'Assigned room not found.' });
+        } else { // Appointment
+            if (!date) {
+                return res.status(400).json({ message: 'Date is required for appointment booking.' });
             }
         }
 
         // Determine payment status
         let paymentStatus = 'pending';
-        if (amountPaid !== undefined && bookingTotalAmount !== undefined) {
+        if (bookingTotalAmount > 0 && amountPaid !== undefined) {
             if (amountPaid >= bookingTotalAmount) {
                 paymentStatus = 'paid';
             } else if (amountPaid > 0 && amountPaid < bookingTotalAmount) {
@@ -180,26 +237,28 @@ router.post('/manual', auth(['admin']), async (req, res) => { // Added auth midd
             }
         }
 
+
         const newBooking = new Booking({
             service,
-            idate: service === 'room' ? idate : undefined,
-            odate: service === 'room' ? odate : undefined,
-            date: service !== 'room' ? date : undefined,
+            idate: service === 'room' ? new Date(idate) : undefined,
+            odate: service === 'room' ? new Date(odate) : undefined,
+            date: service !== 'room' ? new Date(date) : undefined,
             time,
             name,
             email,
             assignedRoom: selectedRoom ? selectedRoom._id : null,
-            totalAmount: bookingTotalAmount,
+            numberOfGuests: numberOfGuests || (service === 'room' ? 1 : undefined),
+            totalAmount: bookingTotalAmount || 0,
             amountPaid: amountPaid || 0,
-            paymentStatus,
+            paymentStatus: paymentStatus,
             paymentMethod: paymentMethod || null,
-            numberOfGuests
+            status: finalBookingStatus
         });
 
         const savedBooking = await newBooking.save();
 
-        // If a room was assigned and the booking is confirmed, update the room's currentBooking field
-        if (savedBooking.assignedRoom && savedBooking.status === 'confirmed') {
+        // If a room was assigned and the booking is confirmed/pending, mark the room as occupied
+        if (savedBooking.assignedRoom && (savedBooking.status === 'confirmed' || savedBooking.status === 'pending')) {
             await Room.findByIdAndUpdate(savedBooking.assignedRoom, { currentBooking: savedBooking._id });
         }
 
@@ -210,8 +269,9 @@ router.post('/manual', auth(['admin']), async (req, res) => { // Added auth midd
     }
 });
 
-// Admin: Delete a booking
-router.delete('/:id', auth(['admin']), async (req, res) => { // Added auth middleware
+
+// Delete a booking (Admin only)
+router.delete('/:id', auth(['admin']), async (req, res) => {
     try {
         const deletedBooking = await Booking.findByIdAndDelete(req.params.id);
         if (!deletedBooking) {
@@ -229,71 +289,77 @@ router.delete('/:id', auth(['admin']), async (req, res) => { // Added auth middl
     }
 });
 
-// Public route to create a booking (Simplified, no room assignment here directly)
-// This route needs to search for available rooms, if 'room' service is selected
+
+// PUBLIC Route for creating a booking
+// ------------------------------------
 router.post('/', async (req, res) => {
     try {
         const { service, date, idate, odate, time, name, email, numberOfGuests } = req.body;
 
         if (service === 'room') {
-            // Find an available room based on dates and maybe capacity/type
-            const availableRooms = await Room.find({
-                status: 'clean', // Only clean rooms
-                currentBooking: null, // Not currently occupied
-                // Add more complex availability logic here, e.g., checking if dates overlap with future bookings
-                // For simplicity, we'll just pick the first available 'clean' room for now.
-                // In a real app, you'd iterate and check if this room is booked for the given dates.
-            });
-
-            if (availableRooms.length === 0) {
-                return res.status(400).json({ message: 'No rooms available for the selected dates or type.' });
+            if (!idate || !odate || new Date(idate) >= new Date(odate)) {
+                return res.status(400).json({ message: 'Check-in and check-out dates are required and valid for room booking.' });
             }
 
-            // Simple assignment: pick the first available room
-            const assignedRoom = availableRooms[0];
+            // Find an AVAILABLE room: clean, not currently booked, and not under maintenance
+            // Also ensure it's not booked for the requested dates
+            const availableRoom = await Room.findOne({
+                status: 'clean',
+                currentBooking: null, // Room not currently occupied by an active booking
+                capacity: { $gte: numberOfGuests || 1 } // Ensure capacity
+            });
 
-            // Check for actual date conflicts with existing bookings for this specific room
-            const conflict = await Booking.findOne({
-                assignedRoom: assignedRoom._id,
-                status: { $in: ['pending', 'confirmed'] },
+            if (!availableRoom) {
+                return res.status(400).json({ message: 'No suitable rooms currently available for the selected dates.' });
+            }
+
+            // Double-check for date conflicts with existing bookings for this specific room
+            // This is important because `currentBooking: null` only checks current occupancy,
+            // not future booked but not yet occupied slots.
+            const conflictBooking = await Booking.findOne({
+                assignedRoom: availableRoom._id,
+                status: { $in: ['pending', 'confirmed'] }, // Check active bookings
                 $or: [
-                    { idate: { $lt: new Date(odate) }, odate: { $gt: new Date(idate) } }
+                    // New booking starts before existing ends AND new booking ends after existing starts
+                    { idate: { $lt: new Date(odate) }, odate: { $gt: new Date(idate) } },
+                    // Existing booking starts before new ends AND existing ends after new starts
+                    { idate: { $gte: new Date(idate), $lt: new Date(odate) } },
+                    { odate: { $gt: new Date(idate), $lte: new Date(odate) } }
                 ]
             });
 
-            if (conflict) {
-                // This scenario means our initial 'availableRooms' check was too simple,
-                // or another booking just happened. Re-run availability or inform user.
-                return res.status(400).json({ message: 'The chosen room became unavailable. Please try again or select different dates.' });
+            if (conflictBooking) {
+                // This means the room, though 'clean' and not 'currentBooking', is pre-booked.
+                return res.status(400).json({ message: 'The selected room is not available for your dates. Please try different dates or room types.' });
             }
 
-            const totalAmount = await calculateRoomBookingAmount(assignedRoom._id, idate, odate);
+            const totalAmount = await calculateRoomBookingAmount(availableRoom._id, idate, odate);
 
             const newBooking = new Booking({
                 service,
-                idate,
-                odate,
-                time: "Check-in time", // Or a specific check-in time for rooms
+                idate: new Date(idate),
+                odate: new Date(odate),
+                time: "14:00", // Default check-in time for rooms (can be made configurable)
                 name,
                 email,
-                assignedRoom: assignedRoom._id,
-                totalAmount,
-                amountPaid: 0, // Customer usually pays later
+                numberOfGuests: numberOfGuests || 1,
+                assignedRoom: availableRoom._id,
+                totalAmount: totalAmount,
+                amountPaid: 0, // Public bookings are initially pending payment
                 paymentStatus: 'pending',
-                numberOfGuests,
-                status: 'pending' // Initial status for public bookings
+                status: 'pending' // Public bookings start as pending, admin confirms
             });
 
             const booking = await newBooking.save();
 
-            // IMPORTANT: Mark the room as booked only AFTER successful payment or confirmation by admin
-            // For now, let's just assign the room, but its `currentBooking` should be updated
-            // when the booking transitions to 'confirmed' status.
-            // await Room.findByIdAndUpdate(assignedRoom._id, { currentBooking: booking._id }); // Uncomment if you want to block immediately
+            // At this point, the room is assigned to the booking.
+            // Mark the room as currently booked ONLY when the booking is 'confirmed' by an admin
+            // or when payment is made, not immediately on public submission.
+            // This prevents a room from being 'blocked' if the public booking is never paid/confirmed.
 
             // Send confirmation email
-            const managerEmail = 'nachwerarichard@gmail.com';
-            const stakeholderEmails = ['nachwerarichy@gmail.com'];
+            const managerEmail = 'nachwerarichard@gmail.com'; // Replace with actual manager email
+            const stakeholderEmails = ['nachwerarichy@gmail.com']; // Replace with actual stakeholder emails
             const clientEmail = booking.email;
 
             const emailResult = await sendBookingConfirmationEmail(
@@ -304,20 +370,24 @@ router.post('/', async (req, res) => {
             );
 
             if (emailResult.success) {
-                res.status(201).json({ message: 'Room booking successful! Confirmation email sent. Your room is ' + assignedRoom.roomNumber, booking });
+                res.status(201).json({ message: `Room booking successful! Confirmation email sent. Your booking for Room ${availableRoom.roomNumber} is pending confirmation.`, booking });
             } else {
-                res.status(201).json({ message: 'Room booking successful, but failed to send email. Your room is ' + assignedRoom.roomNumber, booking, emailError: emailResult.error });
+                res.status(201).json({ message: `Room booking successful, but failed to send email. Your booking for Room ${availableRoom.roomNumber} is pending confirmation.`, booking, emailError: emailResult.error });
             }
 
         } else if (service === 'appointment') {
+            if (!date || !time) {
+                return res.status(400).json({ message: 'Date and Time are required for appointment booking.' });
+            }
+
             const newBooking = new Booking({
                 service,
-                date,
+                date: new Date(date),
                 time,
                 name,
                 email,
                 assignedRoom: null, // No room for appointments
-                totalAmount: 0, // Or a fixed price for appointment
+                totalAmount: 0, // Or a fixed price for appointment types
                 amountPaid: 0,
                 paymentStatus: 'pending',
                 status: 'pending'
@@ -346,26 +416,36 @@ router.post('/', async (req, res) => {
         }
 
     } catch (err) {
-        console.error(err.message);
+        console.error('Public booking error:', err.message);
         res.status(500).json({ error: 'Server error: ' + err.message });
     }
 });
 
-// Admin Login Route (assuming this is part of adminRoutes)
+// Admin/Housekeeper Login Route (using hardcoded credentials as requested)
 router.post('/login', async (req, res) => {
     const { username, password } = req.body;
 
-    // In a real app, you'd fetch user from DB and compare hashed password
-    // This is using your current simple login logic:
-    if (username === 'admin' && password === '123') {
-        // In a real app, create a JWT token with user ID and role
-        const token = jwt.sign({ userId: 'adminId', role: 'admin' }, process.env.JWT_SECRET || 'your_jwt_secret', { expiresIn: '1h' });
-        return res.json({ message: 'Login successful!', token, role: 'admin' });
-    } else if (username === 'housekeeper' && password === 'housekeep123') {
-        const token = jwt.sign({ userId: 'housekeeperId', role: 'housekeeper' }, process.env.JWT_SECRET || 'your_jwt_secret', { expiresIn: '1h' });
-        return res.json({ message: 'Login successful!', token, role: 'housekeeper' });
+    // Hardcoded credentials (DO NOT USE IN PRODUCTION)
+    const HARDCODED_ADMIN_USERNAME = 'admin';
+    const HARDCODED_ADMIN_PASSWORD = '123'; // Extremely insecure
+    const HARDCODED_HOUSEKEEPER_USERNAME = 'housekeeper';
+    const HARDCODED_HOUSEKEEPER_PASSWORD = 'housekeep123'; // Extremely insecure
+
+    let role = null;
+    let userId = null; // Placeholder ID for JWT
+
+    if (username === HARDCODED_ADMIN_USERNAME && password === HARDCODED_ADMIN_PASSWORD) {
+        role = 'admin';
+        userId = 'adminUserId_hardcoded'; // Example unique ID for admin
+    } else if (username === HARDCODED_HOUSEKEEPER_USERNAME && password === HARDCODED_HOUSEKEEPER_PASSWORD) {
+        role = 'housekeeper';
+        userId = 'housekeeperUserId_hardcoded'; // Example unique ID for housekeeper
     }
-    else {
+
+    if (role) {
+        const token = jwt.sign({ userId: userId, role: role }, JWT_SECRET, { expiresIn: '1h' }); // Token expires in 1 hour
+        return res.json({ message: 'Login successful!', token, role: role });
+    } else {
         return res.status(401).json({ message: 'Invalid credentials' });
     }
 });
