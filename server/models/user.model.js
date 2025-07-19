@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
-const bcrypt = require('bcrypt');
+// We are not using bcrypt here as per your request to use hardcoded passwords
+// in the logic, but usually, this model would hash passwords.
 
 const UserSchema = new mongoose.Schema({
     username: {
@@ -7,6 +8,9 @@ const UserSchema = new mongoose.Schema({
         required: true,
         unique: true
     },
+    // In a real app, this would store the hashed password.
+    // For hardcoded passwords in route logic, this field might not be strictly needed
+    // or could store a non-sensitive value if you still want User documents.
     password: {
         type: String,
         required: true
@@ -14,23 +18,8 @@ const UserSchema = new mongoose.Schema({
     role: {
         type: String,
         enum: ['admin', 'housekeeper'],
-        default: 'housekeeper' // Default to housekeeper if not specified
+        required: true
     }
 });
-
-// Hash password before saving
-UserSchema.pre('save', async function (next) {
-    if (!this.isModified('password')) {
-        return next();
-    }
-    const salt = await bcrypt.genSalt(10);
-    this.password = await bcrypt.hash(this.password, salt);
-    next();
-});
-
-// Method to compare passwords
-UserSchema.methods.matchPassword = async function (enteredPassword) {
-    return await bcrypt.compare(enteredPassword, this.password);
-};
 
 module.exports = mongoose.model('User', UserSchema);
