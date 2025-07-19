@@ -1,54 +1,34 @@
-// models/room.model.js
 const mongoose = require('mongoose');
 
-// Check if the 'Room' model already exists to prevent recompilation
-const Room = mongoose.models.Room || mongoose.model('Room', new mongoose.Schema({
+const RoomSchema = new mongoose.Schema({
     roomNumber: {
         type: String,
         required: true,
-        unique: true, // Each room must have a unique number/identifier
-        trim: true
+        unique: true
     },
-    roomType: {
+    roomType: { // e.g., 'Single', 'Double', 'Suite'
         type: String,
-        required: true,
-        enum: ['Single', 'Double', 'Suite', 'Deluxe', 'Standard', 'Family', 'Other'], // Example types, customize as needed
-        trim: true
-    },
-    capacity: { // Max number of guests this room can accommodate
-        type: Number,
-        required: true,
-        min: 1
+        required: true
     },
     pricePerNight: {
         type: Number,
-        required: true,
-        min: 0
+        required: true
     },
-    status: {
+    capacity: {
+        type: Number,
+        required: true
+    },
+    // New fields for housekeeping
+    status: { // 'clean', 'dirty', 'under_maintenance'
         type: String,
-        required: true,
-        enum: ['Available', 'Occupied', 'Cleaning', 'Maintenance', 'Out of Order'],
-        default: 'Available'
-    },
-    features: { // Array of strings for amenities (e.g., ['Balcony', 'AC', 'Ocean View', 'Minibar', 'TV'])
-        type: [String],
-        default: []
+        enum: ['clean', 'dirty', 'under_maintenance'],
+        default: 'clean'
     },
     currentBooking: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'Booking', // Refers to your Booking model
-        default: null
-    },
-    notes: { // Any specific notes about the room
-        type: String,
-        trim: true
-    },
-    totalReservations: {
-        type: Number,
-        default: 0
+        ref: 'Booking',
+        default: null // Will store the ID of the current booking if occupied
     }
-}, { timestamps: true })); // Adds createdAt and updatedAt timestamps
+});
 
-
-module.exports = Room; // Export the 'Room' model
+module.exports = mongoose.model('Room', RoomSchema);
