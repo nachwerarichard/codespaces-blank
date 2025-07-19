@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const Room = require('../models/room.model');
-const auth = require('../middleware/auth'); // You'll create this later for admin/housekeeper roles
+const auth = require('../middleware/auth'); // Middleware for role-based access
 
 // Create a new room (Admin only)
 router.post('/', auth(['admin']), async (req, res) => {
@@ -14,7 +14,7 @@ router.post('/', auth(['admin']), async (req, res) => {
     }
 });
 
-// Get all rooms (Admin/Housekeeper can see, public might see available)
+// Get all rooms (Admin/Housekeeper can see all, public might see available ones via a different route)
 router.get('/', async (req, res) => {
     try {
         const rooms = await Room.find();
@@ -46,15 +46,22 @@ router.put('/:id', auth(['admin']), async (req, res) => {
     }
 });
 
-// Update room status for housekeeping (Admin/Housekeeper)
+// Update room status for housekeeping (Admin/Housekeeper access)
 router.patch('/:id/status', auth(['admin', 'housekeeper']), async (req, res) => {
     try {
         const { status } = req.body;
         if (!status || !['clean', 'dirty', 'under_maintenance'].includes(status)) {
-            return res.status(400).json({ message: 'Invalid status provided.' });
+            return res.status(400).json({ message: 'Invalid status provided. Must be clean, dirty, or under_maintenance.' });
         }
         const room = await Room.findById(req.params.id);
         if (!room) return res.status(404).json({ message: 'Room not found.' });
+
+        // Prevent setting status to clean if room has a current booking (unless admin explicitly overrides)
+        // For simplicity, we allow housekeeper to set to clean. The cron job handles dirty.
+        // If room is under_maintenance and a booking tries to occupy it, it should fail.
+        if (room.currentBooking && status === 'clean' && req.user.role !== 'admin') {
+            return res.status(400).json({ message: 'Cannot mark room as clean while it is currently booked. Admin override needed.' });
+        }
 
         room.status = status;
         await room.save();
@@ -63,7 +70,6 @@ router.patch('/:id/status', auth(['admin', 'housekeeper']), async (req, res) => 
         res.status(500).json({ message: err.message });
     }
 });
-
 
 // Delete a room (Admin only)
 router.delete('/:id', auth(['admin']), async (req, res) => {
