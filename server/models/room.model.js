@@ -6,7 +6,7 @@ const RoomSchema = new mongoose.Schema({
         required: true,
         unique: true
     },
-    roomType: { // e.g., 'Single', 'Double', 'Suite'
+    roomType: { // e.g., 'Single', 'Double', 'Suite', 'Family'
         type: String,
         required: true
     },
@@ -14,20 +14,19 @@ const RoomSchema = new mongoose.Schema({
         type: Number,
         required: true
     },
-    capacity: {
+    capacity: { // Max number of guests
         type: Number,
         required: true
     },
-    // New fields for housekeeping
     status: { // 'clean', 'dirty', 'under_maintenance'
         type: String,
         enum: ['clean', 'dirty', 'under_maintenance'],
         default: 'clean'
     },
-    currentBooking: {
+    currentBooking: { // Reference to the booking that currently occupies this room
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Booking',
-        default: null // Will store the ID of the current booking if occupied
+        default: null
     }
 });
 
